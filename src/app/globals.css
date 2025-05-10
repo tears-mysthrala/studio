@@ -134,7 +134,7 @@ body {
 
 @keyframes flash-green {
   0% { color: hsl(var(--accent-foreground)); } /* Or current text color */
-  50% { color: hsl(var(--primary); transform: scale(1.1); } /* Green flash and slight grow */
+  50% { color: hsl(var(--primary)); transform: scale(1.1); } /* Green flash and slight grow */
   100% { color: hsl(var(--accent-foreground)); transform: scale(1); }
 }
 
