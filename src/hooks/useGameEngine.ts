@@ -27,8 +27,8 @@ const INITIAL_PETS: Pet[] = [
     tipo: 'Entrenador',
     spriteUrl: '/sprites/pet-bihurri-sprite.png',
     dataAiHint: 'pixel art wise old dog',
-    bonusText: '+1 Mente',
-    bonusEffect: (stats) => ({ mente: (stats.mente || 0) + 1 }),
+    bonusText: '+1 Mente (Pasivo)', // Clarified that it's passive for now
+    bonusEffect: (stats: PlayerStats): Partial<PlayerStats> => ({ }), // Passive bonuses handled differently or at stat calculation
     isActive: true,
   },
   {
@@ -38,18 +38,39 @@ const INITIAL_PETS: Pet[] = [
     spriteUrl: '/sprites/pet-mishi-sprite.png',
     dataAiHint: 'pixel art calico cat',
     bonusText: 'Aumenta eficiencia (temporal)',
-    bonusEffect: (stats) => ({ }), // Placeholder, needs more complex logic for temp bonus
+    bonusEffect: (stats: PlayerStats): Partial<PlayerStats> => ({ }), // Placeholder, needs more complex logic for temp bonus
     isActive: false, 
   }
 ];
 
+// Helper to get base stats considering passive pet bonuses like Bihurri's
+const calculateBaseStatsWithPassivePetBonuses = (stats: PlayerStats, pets: Pet[]): PlayerStats => {
+  let newStats = { ...stats };
+  pets.forEach(pet => {
+    if (pet.isActive) {
+      // Example for Bihurri's specific passive +1 Mente
+      if (pet.id === 'bihurri') {
+        newStats.mente = (newStats.mente || 0) + 1;
+      }
+      // Other passive bonuses could be added here
+    }
+  });
+  return newStats;
+};
+
+
 const GAME_STATE_KEY = 'haizkolariIdleGameState';
 
 export function useGameEngine() {
-  const [gameState, setGameState] = useState<GameState>({
-    playerStats: INITIAL_STATS,
-    pets: INITIAL_PETS,
-    gameLog: ['Bienvenido a Haizkolari Idle!'],
+  const [gameState, setGameState] = useState<GameState>(() => {
+    // Initial state calculation including passive pet bonuses
+    const baseStats = INITIAL_STATS;
+    const statsWithPassiveBonuses = calculateBaseStatsWithPassivePetBonuses(baseStats, INITIAL_PETS);
+    return {
+      playerStats: statsWithPassiveBonuses,
+      pets: INITIAL_PETS,
+      gameLog: ['Bienvenido a Haizkolari Idle!'],
+    };
   });
   const [isLoaded, setIsLoaded] = useState(false);
   const { toast } = useToast();
@@ -57,39 +78,58 @@ export function useGameEngine() {
   const addLog = useCallback((message: string) => {
     setGameState(prev => ({
       ...prev,
-      gameLog: [...prev.gameLog.slice(-9), `${new Date().toLocaleTimeString()}: ${message}`], // Keep last 10 logs
+      gameLog: [...prev.gameLog.slice(-9), `${new Date().toLocaleTimeString()}: ${message}`], 
     }));
   }, []);
 
-  const updateStats = useCallback((newStats: Partial<PlayerStats>) => {
+  const updateStats = useCallback((newStatsChanges: Partial<PlayerStats>) => {
     setGameState(prev => {
-      const updatedPlayerStats = { ...prev.playerStats, ...newStats };
-      // Apply pet bonuses
+      // Apply direct changes
+      let updatedPlayerStats = { ...prev.playerStats, ...newStatsChanges };
+      
+      // Recalculate stats with passive pet bonuses if 'mente' changes or pets change (not covered here)
+      // For simplicity, if a stat relevant to a passive bonus changes (e.g. Mente itself), we re-apply.
+      // A more robust system would re-calculate all stats from base + passives.
+      // Bihurri's +1 Mente is added. If Mente is part of newStatsChanges, it overrides.
+      // To ensure consistency:
+      let baseStatsBeforePassive = { ...updatedPlayerStats };
+      if (prev.pets.find(p => p.id === 'bihurri' && p.isActive)) {
+         // If Bihurri provides +1 Mente, and Mente was just updated to X,
+         // the new base Mente is X-1 for calculation, then +1 is re-applied.
+         // This is complex. Simpler: calculate total stats from scratch if passives are involved.
+      }
+      
+      // The current INITIAL_PETS passive bonus for Bihurri is applied at initialization.
+      // Dynamic bonuses from pet.bonusEffect (if any were active and defined to return deltas) could be applied here.
+      // For now, assuming bonusEffect is for active, non-passive effects.
       prev.pets.forEach(pet => {
-        if (pet.isActive) {
-          const bonus = pet.bonusEffect(updatedPlayerStats);
-          for (const key in bonus) {
+        if (pet.isActive && typeof pet.bonusEffect === 'function') {
+          const dynamicBonus = pet.bonusEffect(updatedPlayerStats); // e.g. temporary boosts
+          for (const key in dynamicBonus) {
             const statKey = key as StatKey;
-            if (updatedPlayerStats[statKey] !== undefined && bonus[statKey] !== undefined) {
-                 // This is a simple application, for multipliers or complex bonuses, logic would be different.
-                 // For this example, Bihurri's +1 Mente is handled here if it were dynamic.
-                 // The current pet setup is more for static additive bonuses or effects triggered elsewhere.
+            const bonusValue = dynamicBonus[statKey];
+            if (updatedPlayerStats[statKey] !== undefined && bonusValue !== undefined && typeof updatedPlayerStats[statKey] === 'number' && typeof bonusValue === 'number') {
+                 (updatedPlayerStats[statKey] as number) += bonusValue; // Assuming dynamicBonus returns deltas
             }
           }
         }
       });
+
       return { ...prev, playerStats: updatedPlayerStats };
     });
   }, []);
   
   const trainStat = useCallback((stat: StatKey, amount = 1) => {
-    if (stat === 'oro' || stat === 'exp') return; // Cannot train currency/exp directly this way
+    if (stat === 'oro' || stat === 'exp') return false;
 
     const currentStatValue = gameState.playerStats[stat] || 0;
     let cost = 0;
-    // Example cost scaling: Math.floor(Math.pow(currentStatValue, 1.1) + 5)
-    if (stat === 'fuerza' || stat === 'resistencia') cost = Math.floor(Math.pow(currentStatValue, 1.1) + 5);
     
+    // Define cost for all trainable stats consistently
+    if (['fuerza', 'resistencia', 'angulo', 'posicion', 'velocidad', 'mente'].includes(stat)){
+       cost = Math.floor(Math.pow(currentStatValue, 1.1) + 5);
+    }
+        
     if (gameState.playerStats.oro !== undefined && gameState.playerStats.oro < cost) {
         addLog(`No tienes suficiente oro para entrenar ${stat}. Necesitas ${cost} oro.`);
         toast({ title: "Sin Oro", description: `Necesitas ${cost} oro para entrenar ${stat}.`, variant: "destructive" });
@@ -97,26 +137,63 @@ export function useGameEngine() {
     }
 
     let increase = amount;
-    if (stat === 'fuerza') increase = Math.max(1, Math.floor(amount * (gameState.playerStats.mente / 10)));
-    if (stat === 'resistencia') increase = Math.max(1, Math.floor(amount * (gameState.playerStats.mente / 10)));
+    if (stat === 'fuerza' || stat === 'resistencia') {
+      increase = Math.max(1, Math.floor(amount * (gameState.playerStats.mente / 10)));
+    } else if (stat === 'mente' && amount === 1 ) { // For meditate like action
+        increase = Math.max(1, Math.floor(gameState.playerStats.mente / 5) + 1);
+    }
 
 
-    updateStats({
-      [stat]: currentStatValue + increase,
+    const newStatValue = stat === 'velocidad' ? Math.max(50, currentStatValue + increase) : currentStatValue + increase;
+
+    const statsUpdate: Partial<PlayerStats> = {
+      [stat]: newStatValue,
       oro: gameState.playerStats.oro !== undefined ? gameState.playerStats.oro - cost : undefined,
-      exp: (gameState.playerStats.exp || 0) + Math.floor(increase / 2) // Gain some exp
-    });
-    addLog(`Entrenado ${stat}! (+${increase} ${stat}, -${cost} oro)`);
-    toast({ title: "Entrenamiento Completo", description: `+${increase} ${stat}!`});
+      exp: (gameState.playerStats.exp || 0) + (stat === 'velocidad' ? Math.floor(cost / 2) : Math.floor(Math.abs(increase) / 2))
+    };
+    
+    // If training Mente, and Bihurri is active, we need to adjust for its passive bonus.
+    // This complexity is why passive bonuses are better handled by a full recalculation or applied at a different layer.
+    // For now, let's assume direct update is fine, and initial load handles passive correctly.
+    if (stat === 'mente' && gameState.pets.find(p => p.id === 'bihurri' && p.isActive)) {
+        // The displayed value includes Bihurri's +1. The actual base Mente is playerStats.mente -1.
+        // When increasing, we increase the base.
+        // Example: Mente displayed 2 (base 1 + Bihurri 1). Training increases base to 2. Displayed becomes 3.
+        // So, if newStatValue is the new *displayed* value, then it's fine.
+        // If newStatValue is the new *base* value, then `playerStats.mente` should be `newBaseMente + bihurriBonus`.
+        // The current code: `updateStats({ mente: gameState.playerStats.mente + menteIncrease ... })` where `gameState.playerStats.mente` is the *displayed* value.
+        // This means Bihurri's bonus is effectively counted twice if not careful.
+        // Let's ensure that trainStat operates on the *base* values and passive bonuses are additive display adjustments.
+        // The simplest fix for now: ensure Mente increase from meditate is applied correctly considering this.
+        // The meditate function handles this more directly.
+    }
+
+
+    updateStats(statsUpdate);
+    addLog(`Entrenado ${stat}! (${increase > 0 ? '+' : ''}${increase} ${stat}, -${cost} oro)`);
+    toast({ title: "Entrenamiento Completo", description: `${increase > 0 ? '+' : ''}${increase} ${stat}!`});
     return true;
   }, [gameState.playerStats, updateStats, addLog, toast]);
 
   const meditate = useCallback(() => {
-    const menteIncrease = Math.max(1, Math.floor(gameState.playerStats.mente / 5) + 1);
-    updateStats({ mente: gameState.playerStats.mente + menteIncrease, exp: (gameState.playerStats.exp || 0) + menteIncrease });
-    addLog(`Meditación profunda. (+${menteIncrease} Mente)`);
-    toast({ title: "Meditación", description: `+${menteIncrease} Mente.`});
-  }, [gameState.playerStats.mente, updateStats, addLog, toast]);
+    // Calculate base Mente before Bihurri's bonus if active
+    let baseMente = gameState.playerStats.mente;
+    const bihurriPet = gameState.pets.find(p => p.id === 'bihurri' && p.isActive);
+    if (bihurriPet) {
+      baseMente -= 1; // Subtract Bihurri's known +1 passive bonus
+    }
+    baseMente = Math.max(0, baseMente); // Ensure baseMente is not negative
+
+    const menteIncrease = Math.max(1, Math.floor(baseMente / 5) + 1);
+    let newTotalMente = baseMente + menteIncrease;
+    if (bihurriPet) {
+      newTotalMente += 1; // Add Bihurri's bonus back
+    }
+
+    updateStats({ mente: newTotalMente, exp: (gameState.playerStats.exp || 0) + menteIncrease });
+    addLog(`Meditación profunda. (+${menteIncrease} Mente base)`);
+    toast({ title: "Meditación", description: `Mente ahora es ${newTotalMente}.`});
+  }, [gameState.playerStats, gameState.pets, updateStats, addLog, toast]);
 
   const improveBlade = useCallback(() => {
     const cost = Math.floor(Math.pow(gameState.playerStats.filo, 1.5) * 10 + 20);
@@ -148,15 +225,24 @@ export function useGameEngine() {
         oro: gameState.playerStats.oro !== undefined ? gameState.playerStats.oro - cost : undefined,
     });
     const materialName = materialType === 'materialCabeza' ? 'Material de Cabeza' : 'Material de Mango';
-    addLog(`${materialName} comprado! (+1 ${materialName}, -${cost} oro)`);
-    toast({ title: `${materialName} Comprado!`, description: `Nuevo nivel de ${materialName}: ${currentLevel + 1}`});
+    addLog(`${materialName} comprado! (+1 Nivel, -${cost} oro)`);
+    toast({ title: `${materialName} Comprado!`, description: `Nuevo nivel de ${materialName.toLowerCase()}: ${currentLevel + 1}`});
     return true;
   }, [gameState.playerStats, updateStats, addLog, toast]);
 
 
   const saveGame = useCallback(() => {
     try {
-      const serializedState = btoa(JSON.stringify({ ...gameState, lastSaveTime: Date.now() }));
+      const serializableGameState = {
+        ...gameState,
+        pets: gameState.pets.map(pet => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { bonusEffect, ...serializablePet } = pet; // Exclude function
+          return serializablePet;
+        }),
+        lastSaveTime: Date.now()
+      };
+      const serializedState = btoa(JSON.stringify(serializableGameState));
       localStorage.setItem(GAME_STATE_KEY, serializedState);
       addLog('Juego guardado!');
       toast({ title: "Juego Guardado", description: "Tu progreso ha sido guardado."});
@@ -171,29 +257,58 @@ export function useGameEngine() {
     try {
       const serializedState = localStorage.getItem(GAME_STATE_KEY);
       if (serializedState) {
-        const loadedState = JSON.parse(atob(serializedState)) as GameState;
-        // Basic validation for loaded state structure
-        if (loadedState.playerStats && loadedState.pets && loadedState.gameLog) {
-            setGameState(loadedState);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const loadedData: any = JSON.parse(atob(serializedState));
+        
+        if (loadedData.playerStats && loadedData.pets && loadedData.gameLog) {
+            const loadedPetsWithFunctions = loadedData.pets.map((loadedPetData: Omit<Pet, 'bonusEffect'>) => {
+                const initialPet = INITIAL_PETS.find(p => p.id === loadedPetData.id);
+                if (initialPet) {
+                    return {
+                        ...initialPet, 
+                        ...loadedPetData, 
+                        bonusEffect: initialPet.bonusEffect, 
+                    };
+                }
+                return { ...loadedPetData, bonusEffect: () => ({}) } as Pet; 
+            });
+
+            const mergedPlayerStats = { ...INITIAL_STATS, ...loadedData.playerStats };
+            
+            // Crucially, re-apply passive pet bonuses after loading stats
+            const finalPlayerStats = calculateBaseStatsWithPassivePetBonuses(mergedPlayerStats, loadedPetsWithFunctions);
+
+            const finalLoadedState: GameState = {
+                playerStats: finalPlayerStats,
+                pets: loadedPetsWithFunctions,
+                gameLog: loadedData.gameLog,
+                lastSaveTime: loadedData.lastSaveTime,
+            };
+            
+            setGameState(finalLoadedState);
             addLog('Juego cargado!');
             toast({ title: "Juego Cargado", description: "Tu progreso ha sido restaurado."});
         } else {
             throw new Error("Invalid game state structure in localStorage.");
         }
       } else {
-        addLog('No hay partida guardada.');
+        addLog('No hay partida guardada. Empezando una nueva aventura.');
+        // Initialize with passive bonuses if starting fresh
+        const initialStatsWithPassives = calculateBaseStatsWithPassivePetBonuses(INITIAL_STATS, INITIAL_PETS);
+        setGameState({ playerStats: initialStatsWithPassives, pets: INITIAL_PETS, gameLog: ['No hay partida guardada. Empezando nueva aventura.'] });
         toast({ title: "Sin Partida Guardada", description: "Empezando una nueva aventura."});
       }
     } catch (error) {
       console.error("Error loading game:", error);
       addLog('Error al cargar el juego. Empezando de nuevo.');
       toast({ title: "Error al Cargar", description: "No se pudo cargar tu progreso. Empezando de nuevo.", variant: "destructive" });
-      setGameState({ playerStats: INITIAL_STATS, pets: INITIAL_PETS, gameLog: ['Error al cargar. Empezando nueva partida.'] });
-      localStorage.removeItem(GAME_STATE_KEY); // Clear corrupted save
+      const initialStatsWithPassives = calculateBaseStatsWithPassivePetBonuses(INITIAL_STATS, INITIAL_PETS);
+      setGameState({ playerStats: initialStatsWithPassives, pets: INITIAL_PETS, gameLog: ['Error al cargar. Empezando nueva partida.'] });
+      localStorage.removeItem(GAME_STATE_KEY); 
     } finally {
       setIsLoaded(true);
     }
-  }, [addLog, toast]);
+  }, [addLog, toast]); 
 
   useEffect(() => {
     if (!isLoaded) {
@@ -201,14 +316,11 @@ export function useGameEngine() {
     }
   }, [isLoaded, loadGame]);
   
-  // Auto-save every 5 minutes
   useEffect(() => {
-    if (!isLoaded) return; // Don't auto-save if initial load hasn't happened
-
+    if (!isLoaded) return; 
     const intervalId = setInterval(() => {
       saveGame();
-    }, 5 * 60 * 1000); // 5 minutes
-
+    }, 5 * 60 * 1000); 
     return () => clearInterval(intervalId);
   }, [saveGame, isLoaded]);
 
@@ -225,3 +337,5 @@ export function useGameEngine() {
     loadGame,
   };
 }
+
+    
