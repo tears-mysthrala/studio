@@ -73,7 +73,8 @@ export function PlayerStatsDisplay({ stats }: PlayerStatsProps) {
         {(Object.keys(stats) as StatKey[]).map((key) => {
           const Icon = statIcons[key];
           const value = stats[key];
-          if (value === undefined) return null; // Don't display undefined stats like initial oro/exp if not set
+          // Check for both undefined and null to prevent calling toLocaleString on null
+          if (value === undefined || value === null) return null; 
 
           return (
             <div key={key} className="flex items-center space-x-2 p-2 bg-card-foreground/5 rounded-md" title={`${statDisplayName[key]}: ${value}`}>
@@ -94,3 +95,4 @@ export function PlayerStatsDisplay({ stats }: PlayerStatsProps) {
     </Card>
   );
 }
+
