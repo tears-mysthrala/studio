@@ -19,18 +19,18 @@ export default function HaizkolariIdlePage() {
     meditate,
     improveBlade,
     buyMaterial,
+    chopWood, // Added chopWood
     saveGame,
     loadGame,
   } = useGameEngine();
 
   const [isChopping, setIsChopping] = useState(false);
 
-  // Basic effect for character animation trigger
   const handleAction = (actionFn: () => boolean | void) => {
     const success = actionFn();
-    if (success || success === undefined) { // if success is true or function is void (meditate)
+    if (success || success === undefined) { 
       setIsChopping(true);
-      setTimeout(() => setIsChopping(false), 800); // Duration of one chop cycle
+      setTimeout(() => setIsChopping(false), 800); 
     }
   };
   
@@ -40,6 +40,7 @@ export default function HaizkolariIdlePage() {
   const handleMeditate = () => handleAction(meditate);
   const handleImproveBlade = () => handleAction(improveBlade);
   const handleBuyMaterial = (materialType: 'materialCabeza' | 'materialMango') => handleAction(() => buyMaterial(materialType));
+  const handleChopWood = () => handleAction(chopWood); // Added handler for chopWood
 
 
   if (!isLoaded) {
@@ -76,6 +77,7 @@ export default function HaizkolariIdlePage() {
                 onMeditate={handleMeditate}
                 onImproveBlade={handleImproveBlade}
                 onBuyMaterial={handleBuyMaterial}
+                onChopWood={handleChopWood} // Passed chopWood handler
             />
             <GameLog logs={gameState.gameLog} />
         </div>
@@ -88,3 +90,4 @@ export default function HaizkolariIdlePage() {
     </div>
   );
 }
+

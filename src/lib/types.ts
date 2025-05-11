@@ -12,8 +12,8 @@ export interface PlayerStats {
   filo: number;        // Exponente de fuerza (colores)
   
   // Currency or experience, if needed
-  oro?: number;
-  exp?: number;
+  oro: number;
+  exp: number;
 }
 
 export interface Pet {
@@ -37,11 +37,12 @@ export interface GameState {
 export type StatKey = keyof PlayerStats;
 
 export interface ActionItem {
-  id: StatKey | 'meditate' | 'improveBlade' | 'buyMaterialCabeza' | 'buyMaterialMango' | 'petAction';
+  id: StatKey | 'chopWood' | 'meditate' | 'improveBlade' | 'buyMaterialCabeza' | 'buyMaterialMango' | 'petAction';
   name: string;
   description: string;
   cost?: { oro?: number; exp?: number };
   icon?: React.ElementType;
-  actionFn?: (currentStats: PlayerStats) => Partial<PlayerStats> | void | boolean;
-  buttonVariant?: "default" | "secondary" | "accent" | "destructive" | "outline" | "ghost" | "link";
+  actionFn?: (currentStats?: PlayerStats) => Partial<PlayerStats> | void | boolean; // Made currentStats optional for actions like chopWood
+  buttonVariant?: "default" | "secondary" | "accent" | "destructive" | "outline" | "ghost" | "link" | "primary";
 }
+

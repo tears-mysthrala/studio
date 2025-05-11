@@ -3,7 +3,7 @@
 import type { PlayerStats, StatKey, ActionItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Zap, Shield, Brain, Sparkles, ShoppingCart, ArrowUpCircle, Mountain } from 'lucide-react'; // Mountain for meditate
+import { Zap, Shield, Brain, Sparkles, ShoppingCart, ArrowUpCircle, Mountain, Logs, Axe } from 'lucide-react'; // Mountain for meditate, Logs for Chop Wood
 import React from 'react';
 
 interface ActionListProps {
@@ -12,17 +12,18 @@ interface ActionListProps {
   onMeditate: () => void;
   onImproveBlade: () => boolean;
   onBuyMaterial: (materialType: 'materialCabeza' | 'materialMango') => boolean;
-  // Add other action handlers as needed
+  onChopWood: () => boolean;
 }
 
-export function ActionList({ playerStats, onTrainStat, onMeditate, onImproveBlade, onBuyMaterial }: ActionListProps) {
+export function ActionList({ playerStats, onTrainStat, onMeditate, onImproveBlade, onBuyMaterial, onChopWood }: ActionListProps) {
   
   const actions: ActionItem[] = [
+    { id: 'chopWood', name: 'Cortar Madera', description: 'Corta madera para ganar oro y EXP.', icon: Logs, actionFn: onChopWood, buttonVariant: 'primary' },
     { id: 'fuerza', name: 'Entrenar Fuerza', description: 'Aumenta tu daño base.', icon: Zap, actionFn: () => onTrainStat('fuerza'), buttonVariant: 'default' },
     { id: 'resistencia', name: 'Entrenar Resistencia', description: 'Aumenta tus repeticiones base.', icon: Shield, actionFn: () => onTrainStat('resistencia'), buttonVariant: 'default' },
-    { id: 'angulo', name: 'Entrenar Ángulo', description: 'Mejora multiplicador de fuerza.', icon: ArrowUpCircle, actionFn: () => onTrainStat('angulo'), buttonVariant: 'default' },
+    { id: 'angulo', name: 'Entrenar Ángulo', description: 'Mejora multiplicador de fuerza.', icon: Axe, actionFn: () => onTrainStat('angulo'), buttonVariant: 'default' }, // Changed icon to Axe
     { id: 'posicion', name: 'Entrenar Posición', description: 'Mejora multiplicador de resistencia.', icon: ArrowUpCircle, actionFn: () => onTrainStat('posicion'), buttonVariant: 'default' },
-    { id: 'velocidad', name: 'Entrenar Velocidad', description: 'Reduce tiempo entre acciones.', icon: ArrowUpCircle, actionFn: () => onTrainStat('velocidad', -50), buttonVariant: 'default' }, // Decrease by 50ms
+    { id: 'velocidad', name: 'Entrenar Velocidad', description: 'Reduce tiempo entre acciones.', icon: ArrowUpCircle, actionFn: () => onTrainStat('velocidad', -50), buttonVariant: 'default' }, 
     { id: 'meditate', name: 'Meditar', description: 'Aumenta tu Mente y EXP.', icon: Mountain, actionFn: onMeditate, buttonVariant: 'secondary' },
     { id: 'improveBlade', name: 'Mejorar Filo', description: 'Aumenta el exponente de fuerza.', icon: Sparkles, actionFn: onImproveBlade, buttonVariant: 'accent' },
     { id: 'buyMaterialCabeza', name: 'Comprar Mat. Cabeza', description: 'Mejora multiplicador de fuerza.', icon: ShoppingCart, actionFn: () => onBuyMaterial('materialCabeza'), buttonVariant: 'accent' },
@@ -30,7 +31,7 @@ export function ActionList({ playerStats, onTrainStat, onMeditate, onImproveBlad
   ];
 
   const getActionCost = (action: ActionItem): string => {
-    if (action.id === 'fuerza' || action.id === 'resistencia') {
+    if (action.id === 'fuerza' || action.id === 'resistencia' || action.id === 'angulo' || action.id === 'posicion' || action.id === 'velocidad') {
         const cost = Math.floor(Math.pow(playerStats[action.id as StatKey] || 1, 1.1) + 5);
         return `Costo: ${cost} Oro`;
     }
@@ -52,14 +53,14 @@ export function ActionList({ playerStats, onTrainStat, onMeditate, onImproveBlad
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-center text-primary-foreground bg-primary p-2 rounded-t-md -m-6 mb-0">Acciones Disponibles</CardTitle>
       </CardHeader>
-      <CardContent className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <CardContent className="pt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {actions.map((action) => {
           const Icon = action.icon;
           const costText = getActionCost(action);
           return (
             <Button
               key={action.id}
-              onClick={() => action.actionFn && action.actionFn(playerStats)}
+              onClick={() => action.actionFn && action.actionFn()} // Removed playerStats argument as it's not always needed
               variant={action.buttonVariant || "default"}
               className="w-full h-auto py-3 flex flex-col items-start text-left shadow-md hover:shadow-lg transition-shadow"
               aria-label={action.name}
@@ -77,3 +78,4 @@ export function ActionList({ playerStats, onTrainStat, onMeditate, onImproveBlad
     </Card>
   );
 }
+
