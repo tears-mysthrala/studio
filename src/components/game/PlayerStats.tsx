@@ -2,7 +2,7 @@
 "use client";
 import type { PlayerStats, StatKey } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Zap, Brain, Apple, Scissors, Users, Gauge, Axe, Sparkles, Coins, Star } from 'lucide-react'; // Using Scissors for Angulo, Users for Posicion
+import { Heart, Zap, Brain, Apple, Scissors, Users, Gauge, Axe, Sparkles, Coins, Star } from 'lucide-react'; // Using Scissors for Angulo, Users for Posicion, Heart for Resistencia
 import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -11,15 +11,15 @@ interface PlayerStatsProps {
 }
 
 const statIcons: Record<StatKey, React.ElementType | null> = {
-  resistencia: Shield,
+  resistencia: Heart, // Changed from Shield to Heart
   fuerza: Zap,
   mente: Brain,
   alimentacion: Apple,
-  angulo: Scissors, // Placeholder for Angulo
-  posicion: Users, // Placeholder for Posicion
+  angulo: Scissors, 
+  posicion: Users, 
   velocidad: Gauge,
   materialCabeza: Axe,
-  materialMango: Axe, // Could use a different icon like Hand
+  materialMango: Axe, 
   filo: Sparkles,
   oro: Coins,
   exp: Star,
@@ -42,7 +42,7 @@ const statDisplayName: Record<StatKey, string> = {
 
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return "0";
-  if (num >= 1000000) {
+  if (Math.abs(num) >= 1000000) {
     return num.toExponential(2);
   }
   return num.toLocaleString();
@@ -85,7 +85,7 @@ export function PlayerStatsDisplay({ stats }: PlayerStatsProps) {
           if (value === undefined || value === null) return null; 
 
           return (
-            <div key={key} className="flex items-center space-x-2 p-2 bg-card-foreground/5 rounded-md" title={`${statDisplayName[key]}: ${value.toLocaleString()}`}>
+            <div key={key} className="flex items-center space-x-2 p-2 bg-card-foreground/5 rounded-md" title={`${statDisplayName[key]}: ${formatNumber(value)}`}>
               {Icon && <Icon className="w-5 h-5 text-secondary" />}
               <span className="font-medium text-foreground/90">{statDisplayName[key]}:</span>
               <span 

@@ -16,8 +16,8 @@ const INITIAL_STATS: PlayerStats = {
   materialCabeza: 1,
   materialMango: 1,
   filo: 1,
-  oro: 0, // Initialized gold
-  exp: 0, // Initialized experience
+  oro: 0, 
+  exp: 0, 
 };
 
 const INITIAL_PETS: Pet[] = [
@@ -47,7 +47,7 @@ const calculateBaseStatsWithPassivePetBonuses = (stats: PlayerStats, pets: Pet[]
   let newStats = { ...stats };
   pets.forEach(pet => {
     if (pet.isActive) {
-      if (pet.id === 'bihurri') {
+      if (pet.id === 'bihurri' && typeof newStats.mente === 'number') {
         newStats.mente = (newStats.mente || 0) + 1;
       }
     }
@@ -64,7 +64,11 @@ export function useGameEngine() {
     const statsWithPassiveBonuses = calculateBaseStatsWithPassivePetBonuses(baseStats, INITIAL_PETS);
     return {
       playerStats: statsWithPassiveBonuses,
-      pets: INITIAL_PETS,
+      pets: INITIAL_PETS.map(pet => ({
+        ...pet,
+        // Ensure bonusEffect is a function, even if it's a no-op from loaded data
+        bonusEffect: typeof pet.bonusEffect === 'function' ? pet.bonusEffect : () => ({}),
+      })),
       gameLog: ['Bienvenido a Haizkolari Idle!'],
     };
   });
@@ -102,10 +106,16 @@ export function useGameEngine() {
   const trainStat = useCallback((stat: StatKey, amount = 1) => {
     if (stat === 'oro' || stat === 'exp') return false;
 
+    if (stat === 'alimentacion' && gameState.playerStats.alimentacion >= 8) {
+      addLog(`Alimentación ya está al máximo (8).`);
+      toast({ title: "Límite Alcanzado", description: "Tu alimentación ya está al máximo.", variant: "destructive" });
+      return false;
+    }
+
     const currentStatValue = gameState.playerStats[stat] || 0;
     let cost = 0;
     
-    if (['fuerza', 'resistencia', 'angulo', 'posicion', 'velocidad', 'mente'].includes(stat)){
+    if (['fuerza', 'resistencia', 'angulo', 'posicion', 'velocidad', 'mente', 'alimentacion'].includes(stat)){
        cost = Math.floor(Math.pow(currentStatValue, 1.1) + 5);
     }
         
@@ -116,9 +126,9 @@ export function useGameEngine() {
     }
 
     let increase = amount;
-    if (stat === 'fuerza' || stat === 'resistencia') {
+    if ((stat === 'fuerza' || stat === 'resistencia') && typeof gameState.playerStats.mente === 'number') {
       increase = Math.max(1, Math.floor(amount * (gameState.playerStats.mente / 10)));
-    } else if (stat === 'mente' && amount === 1 ) { 
+    } else if (stat === 'mente' && amount === 1 && typeof gameState.playerStats.mente === 'number') { 
         increase = Math.max(1, Math.floor(gameState.playerStats.mente / 5) + 1);
     }
 
@@ -139,14 +149,14 @@ export function useGameEngine() {
   const meditate = useCallback(() => {
     let baseMente = gameState.playerStats.mente;
     const bihurriPet = gameState.pets.find(p => p.id === 'bihurri' && p.isActive);
-    if (bihurriPet) {
+    if (bihurriPet && typeof baseMente === 'number') {
       baseMente -= 1; 
     }
-    baseMente = Math.max(0, baseMente); 
+    baseMente = Math.max(0, typeof baseMente === 'number' ? baseMente : 0); 
 
     const menteIncrease = Math.max(1, Math.floor(baseMente / 5) + 1);
     let newTotalMente = baseMente + menteIncrease;
-    if (bihurriPet) {
+    if (bihurriPet && typeof newTotalMente === 'number') {
       newTotalMente += 1; 
     }
 
@@ -193,7 +203,6 @@ export function useGameEngine() {
   const chopWood = useCallback(() => {
     const { fuerza, filo, angulo, materialCabeza, exp: currentExp, oro: currentOro } = gameState.playerStats;
     
-    // Effective strength calculation
     const effectiveStrength = fuerza * (1 + angulo / 100) * materialCabeza * Math.pow(1.1, filo -1);
     
     const goldGained = Math.max(1, Math.floor(effectiveStrength / 2));
@@ -241,23 +250,23 @@ export function useGameEngine() {
         
         if (loadedData.playerStats && loadedData.pets && loadedData.gameLog) {
             const loadedPetsWithFunctions = loadedData.pets.map((loadedPetData: Omit<Pet, 'bonusEffect'>) => {
-                const initialPet = INITIAL_PETS.find(p => p.id === loadedPetData.id);
-                if (initialPet) {
-                    return {
-                        ...initialPet, 
-                        ...loadedPetData, 
-                        bonusEffect: typeof initialPet.bonusEffect === 'function' ? initialPet.bonusEffect : () => ({}), 
-                    };
-                }
-                return { ...loadedPetData, bonusEffect: () => ({}) } as Pet; 
+                const initialPetTemplate = INITIAL_PETS.find(p => p.id === loadedPetData.id);
+                return {
+                    ...initialPetTemplate, // Provides the bonusEffect function and other defaults
+                    ...loadedPetData, // Overwrites with loaded data like isActive, nombre, etc.
+                    bonusEffect: initialPetTemplate && typeof initialPetTemplate.bonusEffect === 'function' 
+                                 ? initialPetTemplate.bonusEffect 
+                                 : () => ({}), // Ensure bonusEffect is always a function
+                };
             });
 
             const mergedPlayerStats = { ...INITIAL_STATS, ...loadedData.playerStats };
-            const finalPlayerStats = calculateBaseStatsWithPassivePetBonuses(mergedPlayerStats, loadedPetsWithFunctions);
+            const finalPlayerStats = calculateBaseStatsWithPassivePetBonuses(mergedPlayerStats, loadedPetsWithFunctions as Pet[]);
+
 
             const finalLoadedState: GameState = {
                 playerStats: finalPlayerStats,
-                pets: loadedPetsWithFunctions,
+                pets: loadedPetsWithFunctions as Pet[],
                 gameLog: loadedData.gameLog,
                 lastSaveTime: loadedData.lastSaveTime,
             };
@@ -270,16 +279,16 @@ export function useGameEngine() {
         }
       } else {
         addLog('No hay partida guardada. Empezando una nueva aventura.');
-        const initialStatsWithPassives = calculateBaseStatsWithPassivePetBonuses(INITIAL_STATS, INITIAL_PETS);
-        setGameState({ playerStats: initialStatsWithPassives, pets: INITIAL_PETS, gameLog: ['No hay partida guardada. Empezando nueva aventura.'] });
+        const initialStatsWithPassives = calculateBaseStatsWithPassivePetBonuses(INITIAL_STATS, INITIAL_PETS.map(p => ({...p, bonusEffect: typeof p.bonusEffect === 'function' ? p.bonusEffect : () => ({})})));
+        setGameState({ playerStats: initialStatsWithPassives, pets: INITIAL_PETS.map(p => ({...p, bonusEffect: typeof p.bonusEffect === 'function' ? p.bonusEffect : () => ({})})), gameLog: ['No hay partida guardada. Empezando nueva aventura.'] });
         toast({ title: "Sin Partida Guardada", description: "Empezando una nueva aventura."});
       }
     } catch (error) {
       console.error("Error loading game:", error);
       addLog('Error al cargar el juego. Empezando de nuevo.');
       toast({ title: "Error al Cargar", description: "No se pudo cargar tu progreso. Empezando de nuevo.", variant: "destructive" });
-      const initialStatsWithPassives = calculateBaseStatsWithPassivePetBonuses(INITIAL_STATS, INITIAL_PETS);
-      setGameState({ playerStats: initialStatsWithPassives, pets: INITIAL_PETS, gameLog: ['Error al cargar. Empezando nueva partida.'] });
+      const initialStatsWithPassives = calculateBaseStatsWithPassivePetBonuses(INITIAL_STATS, INITIAL_PETS.map(p => ({...p, bonusEffect: typeof p.bonusEffect === 'function' ? p.bonusEffect : () => ({})})));
+      setGameState({ playerStats: initialStatsWithPassives, pets: INITIAL_PETS.map(p => ({...p, bonusEffect: typeof p.bonusEffect === 'function' ? p.bonusEffect : () => ({})})), gameLog: ['Error al cargar. Empezando nueva partida.'] });
       localStorage.removeItem(GAME_STATE_KEY); 
     } finally {
       setIsLoaded(true);
