@@ -1,6 +1,6 @@
 
 "use client";
-import { PlayerStatsDisplay } from '@/components/game/PlayerStats';
+import { PlayerStatsDisplay } from '@/components/game/PlayerStatsDisplay';
 import { PetDisplay } from '@/components/game/PetDisplay';
 import { CharacterAnimation } from '@/components/game/CharacterAnimation';
 import { ActionList } from '@/components/game/ActionList';
@@ -19,7 +19,7 @@ export default function HaizkolariIdlePage() {
     meditate,
     improveBlade,
     buyMaterial,
-    chopWood, // Added chopWood
+    chopWood, 
     saveGame,
     loadGame,
   } = useGameEngine();
@@ -40,7 +40,7 @@ export default function HaizkolariIdlePage() {
   const handleMeditate = () => handleAction(meditate);
   const handleImproveBlade = () => handleAction(improveBlade);
   const handleBuyMaterial = (materialType: 'materialCabeza' | 'materialMango') => handleAction(() => buyMaterial(materialType));
-  const handleChopWood = () => handleAction(chopWood); // Added handler for chopWood
+  const handleChopWood = () => handleAction(chopWood); 
 
 
   if (!isLoaded) {
@@ -77,7 +77,7 @@ export default function HaizkolariIdlePage() {
                 onMeditate={handleMeditate}
                 onImproveBlade={handleImproveBlade}
                 onBuyMaterial={handleBuyMaterial}
-                onChopWood={handleChopWood} // Passed chopWood handler
+                onChopWood={handleChopWood} 
             />
             <GameLog logs={gameState.gameLog} />
         </div>
@@ -90,4 +90,3 @@ export default function HaizkolariIdlePage() {
     </div>
   );
 }
-
