@@ -40,6 +40,14 @@ const statDisplayName: Record<StatKey, string> = {
   exp: "EXP",
 };
 
+const formatNumber = (num: number): string => {
+  if (num === null || num === undefined) return "0";
+  if (num >= 1000000) {
+    return num.toExponential(2);
+  }
+  return num.toLocaleString();
+};
+
 export function PlayerStatsDisplay({ stats }: PlayerStatsProps) {
   const [changedStats, setChangedStats] = useState<Partial<Record<StatKey, boolean>>>({});
   const prevStatsRef = useRef<PlayerStats>(stats);
@@ -73,11 +81,11 @@ export function PlayerStatsDisplay({ stats }: PlayerStatsProps) {
         {(Object.keys(stats) as StatKey[]).map((key) => {
           const Icon = statIcons[key];
           const value = stats[key];
-          // Check for both undefined and null to prevent calling toLocaleString on null
+          
           if (value === undefined || value === null) return null; 
 
           return (
-            <div key={key} className="flex items-center space-x-2 p-2 bg-card-foreground/5 rounded-md" title={`${statDisplayName[key]}: ${value}`}>
+            <div key={key} className="flex items-center space-x-2 p-2 bg-card-foreground/5 rounded-md" title={`${statDisplayName[key]}: ${value.toLocaleString()}`}>
               {Icon && <Icon className="w-5 h-5 text-secondary" />}
               <span className="font-medium text-foreground/90">{statDisplayName[key]}:</span>
               <span 
@@ -86,7 +94,7 @@ export function PlayerStatsDisplay({ stats }: PlayerStatsProps) {
                   changedStats[key] && 'stat-value-increase'
                 )}
               >
-                {value.toLocaleString()}
+                {formatNumber(value)}
               </span>
             </div>
           );
